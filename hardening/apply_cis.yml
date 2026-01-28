@@ -1,0 +1,18 @@
+---
+- name: Apply CIS Hardening to AI Intern Server
+  hosts: localhost
+  connection: local
+  become: yes
+
+  vars:
+    # Level 1 is the sweet spot: High security, but won't break your apps
+    ubuntu24cis_level_1: true
+    ubuntu24cis_setup_audit: true
+    
+    # We tell the firewall to keep our private Tailscale tunnel open
+    ubuntu24cis_firewall_services:
+      - name: 'tailscale'
+        state: 'enabled'
+    
+  roles:
+    - roles/ubuntucis

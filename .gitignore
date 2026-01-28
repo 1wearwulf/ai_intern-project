@@ -1,0 +1,15 @@
+# Huge AI model files
+*.gguf
+*.bin
+
+# Local environment and packages
+ai-env/
+node_modules/
+docker_bags/
+
+# Private data
+resumes/*
+!resumes/.gitkeep
+
+# System files
+.DS_Store

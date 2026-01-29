@@ -1,70 +1,35 @@
-import requests
-import json
 import sys
-import psutil
 import os
+import fitz  # PyMuPDF
+import subprocess
 
-# Configuration
-URL = "http://100.106.29.116:8080/v1/chat/completions"
-API_KEY = "Back2space" 
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
+def extract_text(pdf_path):
+    text = ""
+    with fitz.open(pdf_path) as doc:
+        for page in doc:
+            text += page.get_text()
+    return text
 
-def get_sys_stats():
-    try:
-        cpu = psutil.cpu_percent(interval=0.1)
-        mem = psutil.virtual_memory().percent
-        return f"[CPU: {cpu}% | RAM: {mem}%]"
-    except:
-        return "[Stats Error]"
-
-def chat():
-    messages = [{"role": "system", "content": "You are a helpful AI Intern running in a hardened sandbox."}]
-    os.system('clear')
-    print("="*50)
-    print(f"--- AI Intern Interactive Chat ---")
-    print("="*50)
-    print("Type 'quit' to exit.")
+def query_ai(resume_text):
+    # This calls the llama.cpp binary you built earlier
+    # We pass a prompt asking the AI to act as an HR expert
+    prompt = f"System: You are an ATS system. Rate this resume out of 100 based on technical skills. Resume: {resume_text[:1000]}"
     
-    while True:
-        stats = get_sys_stats()
-        try:
-            user_input = input(f"\n{stats} You: ")
-        except EOFError:
-            break
-            
-        if user_input.lower() in ['quit', 'exit']:
-            break
-            
-        messages.append({"role": "user", "content": user_input})
-        payload = {"messages": messages, "temperature": 0.7, "stream": True}
-
-        try:
-            response = requests.post(URL, headers=HEADERS, json=payload, stream=True)
-            response.raise_for_status()
-            print("\nIntern: ", end="", flush=True)
-            full_content = ""
-
-            for line in response.iter_lines():
-                if line:
-                    line_text = line.decode('utf-8')
-                    if line_text.startswith("data: "):
-                        data_str = line_text[6:]
-                        if data_str.strip() == "[DONE]": break
-                        try:
-                            chunk = json.loads(data_str)
-                            content = chunk['choices'][0]['delta'].get('content', '')
-                            if content:
-
-                               print(content, end="", flush=True)
-                               full_content += content
-                        except: continue
-            print() 
-            messages.append({"role": "assistant", "content": full_content})
-        except Exception as e:
-            print(f"\n[!] Error: {e}")
+    # Path to your llama.cpp executable and the phi3 model
+    # Note: Adjust these paths if your model is stored elsewhere!
+    cmd = ["/app/llama.cpp/main", "-m", "/app/models/phi3.gguf", "-p", prompt, "-n", "128"]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.stdout
 
 if __name__ == "__main__":
-    chat()
+    if len(sys.argv) < 2:
+        print("Usage: python ats_logic.py <path_to_pdf>")
+    else:
+        resume_path = sys.argv[1]
+        print(f"Reading: {resume_path}")
+        content = extract_text(resume_path)
+        print("Analyzing with AI...")
+        analysis = query_ai(content)
+        print("\n--- ANALYSIS RESULT ---")
+        print(analysis)

@@ -1,16 +1,15 @@
 FROM python:3.11-slim-bookworm
 
-RUN groupadd -r internuser && useradd -r -g internuser internuser
+# Install system dependencies for AI execution
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-RUN mkdir -p /app/resumes && chown -R internuser:internuser /app
 
-RUN apt-get update && apt-get install -y libmupdf-dev gcc && rm -rf /var/lib/apt/lists/*
+# We are copying from the project root into the container
+COPY ../llama.cpp/main /app/llama.cpp/main
+COPY ../models/phi3.gguf /app/models/phi3.gguf
+COPY . .
 
-# Use standard pip but with high timeout for your slow connection
-RUN pip install --no-cache-dir --default-timeout=1000 requests pymupdf --retries 10
+RUN chmod +x /app/llama.cpp/main
 
-COPY --chown=internuser:internuser ats_logic.py .
-
-USER internuser
 ENTRYPOINT ["python", "ats_logic.py"]
-
